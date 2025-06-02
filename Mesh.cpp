@@ -32,7 +32,7 @@ const std::array<REAL, GRIDDIM>& Geometry::getDx() const
 
 void Geometry::getPos(std::array<REAL, GRIDDIM>& pos, const std::array<int, GRIDDIM>& idx) const 
 {
-    for (int d = 0; d < GRIDDIM; ++d)
+    for(int d = 0; d < GRIDDIM; ++d)
     {
         pos[d] = m_lo[d] + ((REAL) idx[d] + 0.5) * m_dx[d];
     }
@@ -40,7 +40,7 @@ void Geometry::getPos(std::array<REAL, GRIDDIM>& pos, const std::array<int, GRID
 
 void Geometry::getIdx(std::array<REAL, GRIDDIM>& idx, const std::array<REAL, GRIDDIM>& pos) const 
 {
-    for (int d = 0; d < GRIDDIM; ++d)
+    for(int d = 0; d < GRIDDIM; ++d)
     {
         idx[d] = (pos[d] - m_lo[d]) / m_dx[d] - 0.5;
     }

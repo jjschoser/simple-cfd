@@ -12,7 +12,7 @@ int main()
 
     const IdealGas eos(1.4);
     const Euler euler(&eos);
-    const LaxFriedrichsSolver fluxSolver(euler);
+    const HLLCSolver fluxSolver(euler);
 
     std::array<std::array<BoundaryCondition, GRIDDIM>, 2> bc;
     for(int s = 0; s < 2; ++s)

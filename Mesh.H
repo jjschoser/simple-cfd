@@ -50,16 +50,16 @@ class Mesh
                 m_data.resize(res[0] + 2 * nGhost);
             #elif GRIDDIM == 2
                 m_data.resize(res[0] + 2 * nGhost);
-                for (int i = 0; i < res[0] + 2 * nGhost; ++i)
+                for(int i = 0; i < res[0] + 2 * nGhost; ++i)
                 {
                     m_data[i].resize(res[1] + 2 * nGhost);
                 }
             #else  // GRIDDIM == 3
                 m_data.resize(res[0] + 2 * nGhost);
-                for (int i = 0; i < res[0] + 2 * nGhost; ++i)
+                for(int i = 0; i < res[0] + 2 * nGhost; ++i)
                 {
                     m_data[i].resize(res[1] + 2 * nGhost);
-                    for (int j = 0; j < res[1] + 2 * nGhost; ++j)
+                    for(int j = 0; j < res[1] + 2 * nGhost; ++j)
                     {
                         m_data[i][j].resize(res[2] + 2 * nGhost);
                     }
@@ -188,14 +188,14 @@ class Mesh
             file << NVARS << std::endl;
             std::array<int, GRIDDIM> idx;
             #if GRIDDIM == 3
-                for (int k = 0; k < res[2]; ++k)
+                for(int k = 0; k < res[2]; ++k)
             #endif
                 {
             #if GRIDDIM >= 2
-                    for (int j = 0; j < res[1]; ++j)
+                    for(int j = 0; j < res[1]; ++j)
             #endif
                     {
-                        for (int i = 0; i < res[0]; ++i)
+                        for(int i = 0; i < res[0]; ++i)
                         {
                             idx = {GRIDDIM_DECL(i, j, k)};
                             const std::array<REAL, NVARS> data = operator()(idx);

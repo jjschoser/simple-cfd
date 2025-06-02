@@ -15,6 +15,7 @@ class Euler
         static constexpr int ENE = MOM[SPACEDIM - 1] + 1;  // Index for total energy
 
         Euler(const EquationOfState* const eos);
+        const EquationOfState* getEquationOfState() const;
         REAL getSpecificInternalEnergy(const std::array<REAL, NVARS>& U) const;
         REAL getTotalEnergy(const REAL rho, const std::array<REAL, SPACEDIM>& vel, const REAL p) const;
         void evalFluxFunc(std::array<REAL, NVARS>& F, const std::array<REAL, NVARS>& U, const int dim) const;

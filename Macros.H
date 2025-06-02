@@ -2,8 +2,8 @@
 #define MACROS_H
 
 #define REAL double
-#define GRIDDIM 2
-#define SPACEDIM 2
+#define GRIDDIM 3
+#define SPACEDIM 3
 
 #if GRIDDIM == 1
     #define GRIDDIM_TERM(a, b, c) a

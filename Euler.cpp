@@ -5,11 +5,16 @@ Euler::Euler(const EquationOfState* const eos) : m_eos(eos)
     
 }
 
+const EquationOfState* Euler::getEquationOfState() const
+{
+    return m_eos;
+}
+
 REAL Euler::getSpecificInternalEnergy(const std::array<REAL, NVARS>& U) const
 {
     const REAL rho = U[RHO];
     REAL momMag2 = 0.0;
-    for (int d = 0; d < SPACEDIM; ++d)
+    for(int d = 0; d < SPACEDIM; ++d)
     {
         momMag2 += U[MOM[d]] * U[MOM[d]];
     }
@@ -19,7 +24,7 @@ REAL Euler::getSpecificInternalEnergy(const std::array<REAL, NVARS>& U) const
 REAL Euler::getTotalEnergy(const REAL rho, const std::array<REAL, SPACEDIM>& vel, const REAL p) const
 {
     REAL velMag2 = 0.0;
-    for (int d = 0; d < SPACEDIM; ++d)
+    for(int d = 0; d < SPACEDIM; ++d)
     {
         velMag2 += vel[d] * vel[d];
     }
@@ -48,7 +53,7 @@ REAL Euler::getMaxWaveSpeed(const std::array<REAL, NVARS>& U) const
     const REAL e = getSpecificInternalEnergy(U);
     const REAL p = m_eos->getPressure(rho, e);
     REAL velMag2 = 0.0;
-    for (int d = 0; d < SPACEDIM; ++d)
+    for(int d = 0; d < SPACEDIM; ++d)
     {
         velMag2 += U[MOM[d]] * U[MOM[d]] / (rho * rho);
     }
