@@ -38,7 +38,7 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
     while(t < finalTime)
     {
         dt = std::min(calcDt(euler, mesh, cfl), finalTime - t);
-        std::cout << "step = " << step << ", time = " << t << " (" << (t - startTime) / (finalTime - startTime) * 100 << "%), dt = " << dt << std::endl;
+        std::cout << "step " << step << ", t = " << t << ", dt = " << dt << ", progress = " << (t - startTime) / (finalTime - startTime) * 100 << " %" << std::endl;
         for(int d = 0; d < GRIDDIM; ++d)
         {
             mesh.fillGhost(bc, vecIdx);

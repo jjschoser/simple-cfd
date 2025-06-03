@@ -59,7 +59,7 @@ void MUSCLHancock::doHalfStep(std::array<REAL, Euler::NVARS>& UReconLo, std::arr
     REAL delta;
     for (int v = 0; v < Euler::NVARS; ++v)
     {
-        delta = dt / dx[dim] * (FRecHi[v] - FRecLo[v]);
+        delta = 0.5 * dt / dx[dim] * (FRecHi[v] - FRecLo[v]);
         UReconLo[v] -= delta;
         UReconHi[v] -= delta;
     }
