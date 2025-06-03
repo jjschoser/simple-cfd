@@ -2,6 +2,7 @@
 #include "Euler.H"
 #include "FluxSolver.H"
 #include "Mesh.H"
+#include "Reconstruction.H"
 #include "Solver.H"
 
 int main()
@@ -13,6 +14,7 @@ int main()
     const IdealGas eos(1.4);
     const Euler euler(&eos);
     const HLLCSolver fluxSolver(euler);
+    const MUSCLHancock recon(euler);
 
     std::array<std::array<BoundaryCondition, GRIDDIM>, 2> bc;
     for(int s = 0; s < 2; ++s)
@@ -39,7 +41,7 @@ int main()
     #endif
 
     const Geometry geom(lo, hi, res);
-    Mesh<Euler::NVARS> mesh(geom, 1);
+    Mesh<Euler::NVARS> mesh(geom, 2);
 
     REAL rho, p;
     std::array<REAL, SPACEDIM> vel = {SPACEDIM_DECL(0.0, 0.0, 0.0)};
@@ -86,7 +88,7 @@ int main()
             }
         }
     
-    const int finalStep = solve(euler, finalTime, mesh, bc, &fluxSolver);
+    const int finalStep = solve(euler, finalTime, mesh, bc, &fluxSolver, &recon);
     mesh.writeToFile("out.txt", finalStep, finalTime);
 
     return 0;
