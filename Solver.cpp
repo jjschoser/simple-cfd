@@ -2,6 +2,10 @@
 
 #include "Solver.H"
 
+#ifdef USE_OMP
+    #include <omp.h>
+#endif
+
 int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh, 
           const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
           const FluxSolver* const fluxSolver, const Reconstruction* const recon, 
@@ -54,21 +58,25 @@ REAL calcDt(const Euler& euler, const Mesh<Euler::NVARS>& mesh, const REAL cfl)
     const std::array<REAL, GRIDDIM>& dx = mesh.getGeometry().getDx();
 
     REAL maxWaveSpeed = 0.0;
-    #if GRIDDIM == 3
-        for(int k = 0; k < res[2]; ++k)
+
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(res, mesh, euler) reduction(max:maxWaveSpeed) schedule(static)
     #endif
+    for(int i = 0; i < res[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = 0; j < res[1]; ++j)
+        #endif
         {
-    #if GRIDDIM >= 2
-            for(int j = 0; j < res[1]; ++j)
-    #endif
+            #if GRIDDIM == 3
+            for(int k = 0; k < res[2]; ++k)
+            #endif
             {
-                for(int i = 0; i < res[0]; ++i)
-                {
-                    const std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
-                    maxWaveSpeed = std::max(maxWaveSpeed, euler.getMaxWaveSpeed(U));
-                }
+                const std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
+                maxWaveSpeed = std::max(maxWaveSpeed, euler.getMaxWaveSpeed(U));
             }
         }
+    }
     
     REAL minDx = dx[0];
     #if GRIDDIM >= 2
@@ -94,25 +102,29 @@ void doReconstruction(const Reconstruction* const recon,
     std::array<int, GRIDDIM> offset = {GRIDDIM_DECL(0, 0, 0)};
     offset[dim] = 1;
 
-    #if GRIDDIM == 3
-        for(int k = -nGhost * offset[2]; k < res[2] + nGhost * offset[2]; ++k)
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(mesh, recon, reconDataLo, reconDataHi, res, dx, dt, dim, nGhost, offset) schedule(static)
     #endif
+    for(int i = -nGhost * offset[0]; i < res[0] + nGhost * offset[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = -nGhost * offset[1]; j < res[1] + nGhost * offset[1]; ++j)
+        #endif
         {
-    #if GRIDDIM >= 2
-            for(int j = -nGhost * offset[1]; j < res[1] + nGhost * offset[1]; ++j)
-    #endif
+            #if GRIDDIM == 3
+            for(int k = -nGhost * offset[2]; k < res[2] + nGhost * offset[2]; ++k)
+            #endif
             {
-                for(int i = -nGhost * offset[0]; i < res[0] + nGhost * offset[0]; ++i)
-                {
-                    std::array<REAL, Euler::NVARS>& UReconLo = reconDataLo(GRIDDIM_DECL(i, j, k));
-                    std::array<REAL, Euler::NVARS>& UReconHi = reconDataHi(GRIDDIM_DECL(i, j, k));
-                    const std::array<REAL, Euler::NVARS>& UNbrLo = mesh(GRIDDIM_DECL(i - offset[0], j - offset[1], k - offset[2]));
-                    const std::array<REAL, Euler::NVARS>& UNbrHi = mesh(GRIDDIM_DECL(i + offset[0], j + offset[1], k + offset[2]));
-                    const std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
-                    (*recon)(UReconLo, UReconHi, UNbrLo, UNbrHi, U, dx, dt, dim);
-                }
+                std::array<REAL, Euler::NVARS>& UReconLo = reconDataLo(GRIDDIM_DECL(i, j, k));
+                std::array<REAL, Euler::NVARS>& UReconHi = reconDataHi(GRIDDIM_DECL(i, j, k));
+                const std::array<REAL, Euler::NVARS>& UNbrLo = mesh(GRIDDIM_DECL(i - offset[0], j - offset[1], k - offset[2]));
+                const std::array<REAL, Euler::NVARS>& UNbrHi = mesh(GRIDDIM_DECL(i + offset[0], j + offset[1], k + offset[2]));
+                const std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
+                (*recon)(UReconLo, UReconHi, UNbrLo, UNbrHi, U, dx, dt, dim);
             }
         }
+
+    }
 }
 
 void calcFlux(const FluxSolver* const fluxSolver, const Geometry& geom,
@@ -126,23 +138,26 @@ void calcFlux(const FluxSolver* const fluxSolver, const Geometry& geom,
     std::array<int, GRIDDIM> offset = {GRIDDIM_DECL(0, 0, 0)};
     offset[dim] = 1;
 
-    #if GRIDDIM == 3
-        for(int k = 0; k < res[2] + offset[2]; ++k)
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(res, reconDataLo, reconDataHi, fluxData, dx, dt, dim, offset, fluxSolver) schedule(static)
     #endif
+    for(int i = 0; i < res[0] + offset[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = 0; j < res[1] + offset[1]; ++j)
+        #endif
         {
-    #if GRIDDIM >= 2
-            for(int j = 0; j < res[1] + offset[1]; ++j)
-    #endif
+            #if GRIDDIM == 3
+            for(int k = 0; k < res[2] + offset[2]; ++k)
+            #endif
             {
-                for(int i = 0; i < res[0] + offset[0]; ++i)
-                {
-                    std::array<REAL, Euler::NVARS>& F = fluxData(GRIDDIM_DECL(i, j, k));
-                    const std::array<REAL, Euler::NVARS>& ULo = reconDataHi(GRIDDIM_DECL(i - offset[0], j - offset[1], k - offset[2]));
-                    const std::array<REAL, Euler::NVARS>& UHi = reconDataLo(GRIDDIM_DECL(i, j, k));
-                    (*fluxSolver)(F, ULo, UHi, dx, dt, dim);
-                }
+                std::array<REAL, Euler::NVARS>& F = fluxData(GRIDDIM_DECL(i, j, k));
+                const std::array<REAL, Euler::NVARS>& ULo = reconDataHi(GRIDDIM_DECL(i - offset[0], j - offset[1], k - offset[2]));
+                const std::array<REAL, Euler::NVARS>& UHi = reconDataLo(GRIDDIM_DECL(i, j, k));
+                (*fluxSolver)(F, ULo, UHi, dx, dt, dim);
             }
         }
+    }
 }
 
 void updateMesh(Mesh<Euler::NVARS>& mesh, const DataArray<Euler::NVARS>& fluxData, 
@@ -154,24 +169,27 @@ void updateMesh(Mesh<Euler::NVARS>& mesh, const DataArray<Euler::NVARS>& fluxDat
     std::array<int, GRIDDIM> offset = {GRIDDIM_DECL(0, 0, 0)};
     offset[dim] = 1;
 
-    #if GRIDDIM == 3
-        for(int k = 0; k < res[2]; ++k)
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(mesh, fluxData, res, dx, dt, dim, offset) schedule(static)
     #endif
+    for(int i = 0; i < res[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = 0; j < res[1]; ++j)
+        #endif
         {
-    #if GRIDDIM >= 2
-            for(int j = 0; j < res[1]; ++j)
-    #endif
+            #if GRIDDIM == 3
+            for(int k = 0; k < res[2]; ++k)
+            #endif
             {
-                for(int i = 0; i < res[0]; ++i)
+                std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
+                const std::array<REAL, Euler::NVARS>& FLo = fluxData(GRIDDIM_DECL(i, j, k));
+                const std::array<REAL, Euler::NVARS>& FHi = fluxData(GRIDDIM_DECL(i + offset[0], j + offset[1], k + offset[2]));
+                for(int v = 0; v < Euler::NVARS; ++v)
                 {
-                    std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
-                    const std::array<REAL, Euler::NVARS>& FLo = fluxData(GRIDDIM_DECL(i, j, k));
-                    const std::array<REAL, Euler::NVARS>& FHi = fluxData(GRIDDIM_DECL(i + offset[0], j + offset[1], k + offset[2]));
-                    for(int v = 0; v < Euler::NVARS; ++v)
-                    {
-                        U[v] -= dt / dx[dim] * (FHi[v] - FLo[v]);
-                    }
+                    U[v] -= dt / dx[dim] * (FHi[v] - FLo[v]);
                 }
             }
         }
+    }
 }

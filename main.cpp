@@ -5,6 +5,10 @@
 #include "Reconstruction.H"
 #include "Solver.H"
 
+#ifdef USE_OMP
+    #include <omp.h>
+#endif
+
 int main()
 {
     const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(0.0, 0.0, 0.0)};
@@ -43,11 +47,7 @@ int main()
     const Geometry geom(lo, hi, res);
     Mesh<Euler::NVARS> mesh(geom, 2);
 
-    REAL rho, p;
     std::array<REAL, SPACEDIM> vel = {SPACEDIM_DECL(0.0, 0.0, 0.0)};
-    REAL r;
-    std::array<int, GRIDDIM> idx;
-    std::array<REAL, GRIDDIM> pos;
 
     #if GRIDDIM == 1
         const REAL rInter = 0.5;
@@ -55,36 +55,41 @@ int main()
         const REAL rInter = 0.4;
     #endif
 
-    #if GRIDDIM == 3
-        for(int k = 0; k < res[2]; ++k)
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(res, geom, mesh, euler, vel) schedule(static)
     #endif
+    for(int i = 0; i < res[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = 0; j < res[1]; ++j)
+        #endif
         {
-    #if GRIDDIM >= 2
-            for(int j = 0; j < res[1]; ++j)
-    #endif
+            #if GRIDDIM == 3
+            for(int k = 0; k < res[2]; ++k)
+            #endif
             {
-                for(int i = 0; i < res[0]; ++i)
+                const std::array<int, GRIDDIM> idx = {GRIDDIM_DECL(i, j, k)};
+                std::array<REAL, GRIDDIM> pos;
+                geom.getPos(pos, idx);
+                const REAL r = std::sqrt(GRIDDIM_TERM(pos[0] * pos[0], + pos[1] * pos[1], + pos[2] * pos[2]));
+                REAL rho, p;
+                if(r < rInter)
                 {
-                    idx = {GRIDDIM_DECL(i, j, k)};
-                    geom.getPos(pos, idx);
-                    r = std::sqrt(GRIDDIM_TERM(pos[0] * pos[0], + pos[1] * pos[1], + pos[2] * pos[2]));
-                    if(r < rInter)
-                    {
-                        rho = 1.0;
-                        p = 1.0;
-                    }
-                    else
-                    {
-                        rho = 0.125;
-                        p = 0.1;
-                    }
-                    mesh(idx)[euler.RHO] = rho;
-                    for(int d = 0; d < SPACEDIM; ++d)
-                    {
-                        mesh(idx)[euler.MOM[d]] = rho * vel[d];
-                    }
-                    mesh(idx)[euler.ENE] = euler.getTotalEnergy(rho, vel, p);
+                    rho = 1.0;
+                    p = 1.0;
                 }
+                else
+                {
+                    rho = 0.125;
+                    p = 0.1;
+                }
+                mesh(idx)[euler.RHO] = rho;
+                for(int d = 0; d < SPACEDIM; ++d)
+                {
+                    mesh(idx)[euler.MOM[d]] = rho * vel[d];
+                }
+                mesh(idx)[euler.ENE] = euler.getTotalEnergy(rho, vel, p);
+            }
             }
         }
     

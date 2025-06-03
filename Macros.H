@@ -1,6 +1,7 @@
 #ifndef MACROS_H
 #define MACROS_H
 
+#define USE_OMP
 #define REAL double
 #define GRIDDIM 2
 #define SPACEDIM 2

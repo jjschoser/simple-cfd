@@ -117,43 +117,43 @@ class DataArray
                 nIter[d] = m_nGhost;
                 for(int s = 0; s < 2; ++s)
                 {
-                    #if GRIDDIM == 3
-                        for(int k = 0; k < nIter[2]; ++k)
-                    #endif
+                    for(int i = 0; i < nIter[0]; ++i)
+                    {
+                        #if GRIDDIM >= 2
+                        for(int j = 0; j < nIter[1]; ++j)
+                        #endif
                         {
-                    #if GRIDDIM >= 2
-                            for(int j = 0; j < nIter[1]; ++j)
-                    #endif
+                            #if GRIDDIM == 3
+                            for(int k = 0; k < nIter[2]; ++k)
+                            #endif
                             {
-                                for(int i = 0; i < nIter[0]; ++i)
+                                idxTarget = {GRIDDIM_DECL(i, j, k)};
+                                const int g = idxTarget[d];
+                                idxTarget[d] = (s == 0) ? -1 - g : m_res[d] + g;
+                                idxSource = idxTarget;
+                                if(bc[s][d] == TRANSMISSIVE)
                                 {
-                                    idxTarget = {GRIDDIM_DECL(i, j, k)};
-                                    const int g = idxTarget[d];
-                                    idxTarget[d] = (s == 0) ? -1 - g : m_res[d] + g;
-                                    idxSource = idxTarget;
-                                    if(bc[s][d] == TRANSMISSIVE)
+                                    idxSource[d] = (s == 0) ? 0 : m_res[d] - 1;
+                                }
+                                else if(bc[s][d] == REFLECTIVE)
+                                {
+                                    idxSource[d] = (s == 0) ? g : m_res[d] - 1 - g;
+                                }
+                                else if(bc[s][d] == PERIODIC)
+                                {
+                                    idxSource[d] =  (s == 0) ? m_res[d] - 1 - g : g;
+                                }
+                                (*this)(idxTarget) = (*this)(idxSource);
+                                if(bc[s][d] == REFLECTIVE)
+                                {
+                                    for(size_t v = 0; v < vecIdx.size(); ++v)
                                     {
-                                        idxSource[d] = (s == 0) ? 0 : m_res[d] - 1;
-                                    }
-                                    else if(bc[s][d] == REFLECTIVE)
-                                    {
-                                        idxSource[d] = (s == 0) ? g : m_res[d] - 1 - g;
-                                    }
-                                    else if(bc[s][d] == PERIODIC)
-                                    {
-                                        idxSource[d] =  (s == 0) ? m_res[d] - 1 - g : g;
-                                    }
-                                    (*this)(idxTarget) = (*this)(idxSource);
-                                    if(bc[s][d] == REFLECTIVE)
-                                    {
-                                        for(size_t v = 0; v < vecIdx.size(); ++v)
-                                        {
-                                            (*this)(idxTarget)[vecIdx[v][d]] *= -1.0;
-                                        }
+                                        (*this)(idxTarget)[vecIdx[v][d]] *= -1.0;
                                     }
                                 }
                             }
                         }
+                    }
                 }
             }
         }

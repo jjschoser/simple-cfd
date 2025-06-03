@@ -1,4 +1,4 @@
-CXX=g++
+CXX=g++ -fopenmp
 CXXFLAGS=-O3 -Wall -Wextra
 
 simple-cfd : main.o EquationOfState.o Euler.o FluxSolver.o Mesh.o Reconstruction.o Solver.o
