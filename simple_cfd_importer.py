@@ -17,17 +17,101 @@ import openvdb as vdb
 import os
 
 
-# Operator to import data
-class SIMPLE_CFD_OT_import(bpy.types.Operator):
-    bl_idname = "simple_cfd.import"
-    bl_label = "Import data"
+def read_header_file(header_path):
+    with open(header_path, "r") as f:
+        _ = int(f.readline())  # Step
+        _ = float(f.readline())  # Time
+        lo = np.asarray([float(i) for i in f.readline().split()])
+        hi = np.asarray([float(i) for i in f.readline().split()])
+        res = np.asarray([int(i) for i in f.readline().split()])
+        NVARS = int(f.readline())
+        data_filename = f.readline().rstrip()
+    return lo, hi, res, NVARS, data_filename
+
+
+def read_data_file(data_path, res, NVARS):
+    REAL = np.float64  # Assumes that files were written with double precision
+    count = np.prod(res) * NVARS
+    with open(data_path, "rb") as f:
+        data = np.fromfile(f, dtype=REAL, count=count).reshape((*res, NVARS))
+    return data
+
+
+def get_density(data):
+    return data[..., 0]
+
+
+def get_velocity(data):
+    return data[..., 1:-1] / get_density(data)[..., np.newaxis]
+
+
+def get_specific_internal_energy(data):
+    density = get_density(data)
+    total_energy = data[..., -1]
+    velocity = get_velocity(data)
+    kinetic_energy = 0.5 * density * np.einsum("ijkl,ijkl->ijk", velocity, velocity)
+    return (total_energy - kinetic_energy) / density
+
+
+def get_density_gradient(density, dx):
+    return np.moveaxis(np.asarray(np.gradient(density, *dx)), 0, -1)
+
+
+def get_vorticity(velocity, dx):
+    x_velocity_gradient = np.gradient(velocity[..., 0], *dx)
+    y_velocity_gradient = np.gradient(velocity[..., 1], *dx)
+    z_velocity_gradient = np.gradient(velocity[..., 2], *dx)
+    vorticity = np.zeros_like(velocity)
+    vorticity[..., 0] = z_velocity_gradient[1] - y_velocity_gradient[2]
+    vorticity[..., 1] = x_velocity_gradient[2] - z_velocity_gradient[0]
+    vorticity[..., 2] = y_velocity_gradient[0] - x_velocity_gradient[1]
+    return vorticity
+
+
+def idx_to_pos(idx, lo, dx):
+    return lo + (idx + 0.5) * dx
+
+
+def pos_to_idx(pos, lo, dx):
+    return (pos - lo) / dx - 0.5
+
+
+# Interpolate array of data
+def interp(data, i, j, k):
+    i_lo = np.floor(i).astype(int)
+    j_lo = np.floor(j).astype(int)
+    k_lo = np.floor(k).astype(int)
+
+    # Clip out-of-bounds indices
+    i_lo = np.clip(i_lo, 0, data.shape[0] - 2)
+    j_lo = np.clip(j_lo, 0, data.shape[1] - 2)
+    k_lo = np.clip(k_lo, 0, data.shape[2] - 2)
+
+    i_hi = i_lo + 1
+    j_hi = j_lo + 1
+    k_hi = k_lo + 1
+
+    return (data[i_lo, j_lo, k_lo] * (i_hi - i) * (j_hi - j) * (k_hi - k)
+            + data[i_hi, j_lo, k_lo] * (i - i_lo) * (j_hi - j) * (k_hi - k)
+            + data[i_lo, j_hi, k_lo] * (i_hi - i) * (j - j_lo) * (k_hi - k)
+            + data[i_hi, j_hi, k_lo] * (i - i_lo) * (j - j_lo) * (k_hi - k)
+            + data[i_lo, j_lo, k_hi] * (i_hi - i) * (j_hi - j) * (k - k_lo)
+            + data[i_hi, j_lo, k_hi] * (i - i_lo) * (j_hi - j) * (k - k_lo)
+            + data[i_lo, j_hi, k_hi] * (i_hi - i) * (j - j_lo) * (k - k_lo)
+            + data[i_hi, j_hi, k_hi] * (i - i_lo) * (j - j_lo) * (k - k_lo))
+
+
+# Operator to import volume data
+class SIMPLE_CFD_OT_volume_import(bpy.types.Operator):
+    bl_idname = "simple_cfd.volume_import"
+    bl_label = "Import volume data"
 
     def execute(self, context):
         # Load data and check correctness
         header_path = bpy.path.abspath(context.scene.simple_cfd_header_file)
 
         try:
-            lo, hi, res, NVARS, data_filename = self.read_header_file(header_path)
+            lo, hi, res, NVARS, data_filename = read_header_file(header_path)
         except FileNotFoundError:
             self.report({"ERROR"}, "Header file not found: " + header_path)
             return {"CANCELLED"}
@@ -57,7 +141,7 @@ class SIMPLE_CFD_OT_import(bpy.types.Operator):
         data_path = dir + "/" + data_filename
 
         try:
-            data = self.read_data_file(data_path, res, NVARS)
+            data = read_data_file(data_path, res, NVARS)
         except FileNotFoundError:
             self.report({"ERROR"}, "Data file not found: " + data_path)
             return {"CANCELLED"}
@@ -66,22 +150,11 @@ class SIMPLE_CFD_OT_import(bpy.types.Operator):
             return {"CANCELLED"}
 
         # Compute relevant quantities to be saved
-        density = data[..., 0]
-        momentum = data[..., 1:-1]
-        total_energy = data[..., -1]
-
-        velocity = momentum / density[..., np.newaxis]
-        kinetic_energy = 0.5 * density * np.einsum("ijkl,ijkl->ijk", velocity, velocity)
-        specific_internal_energy = (total_energy - kinetic_energy) / density
-
-        density_gradient = np.moveaxis(np.asarray(np.gradient(density, *dx)), 0, -1)
-        x_velocity_gradient = np.gradient(velocity[..., 0], *dx)
-        y_velocity_gradient = np.gradient(velocity[..., 1], *dx)
-        z_velocity_gradient = np.gradient(velocity[..., 2], *dx)
-        vorticity = np.zeros_like(velocity)
-        vorticity[..., 0] = z_velocity_gradient[1] - y_velocity_gradient[2]
-        vorticity[..., 1] = x_velocity_gradient[2] - z_velocity_gradient[0]
-        vorticity[..., 2] = y_velocity_gradient[0] - x_velocity_gradient[1]
+        density = get_density(data)
+        velocity = get_velocity(data)
+        specific_internal_energy = get_specific_internal_energy(data)
+        density_gradient = get_density_gradient(density, dx)
+        vorticity = get_vorticity(velocity, dx)
 
         # Convert data to VDB file and save it to the same directory as the data file
         density_grid = vdb.FloatGrid()
@@ -116,24 +189,97 @@ class SIMPLE_CFD_OT_import(bpy.types.Operator):
         bpy.ops.object.volume_import(filepath=vdb_path, align="WORLD", location=(lo[0], lo[1], lo[2]))
         
         return {"FINISHED"}
-    
-    def read_header_file(self, header_path):
-        with open(header_path, "r") as f:
-            _ = int(f.readline())  # Step
-            _ = float(f.readline())  # Time
-            lo = [float(i) for i in f.readline().split()]
-            hi = [float(i) for i in f.readline().split()]
-            res = [int(i) for i in f.readline().split()]
-            NVARS = int(f.readline())
-            data_filename = f.readline().rstrip()
-        return lo, hi, res, NVARS, data_filename
-    
-    def read_data_file(self, data_path, res, NVARS):
-        REAL = np.float64  # Assumes that files were written with double precision
-        count = np.prod(res) * NVARS
-        with open(data_path, "rb") as f:
-            data = np.fromfile(f, dtype=REAL, count=count).reshape((*res, NVARS))
-        return data
+
+
+# Operator to import streamlines
+class SIMPLE_CFD_OT_streamline_import(bpy.types.Operator):
+    bl_idname = "simple_cfd.streamline_import"
+    bl_label = "Import streamlines"
+
+    def execute(self, context):
+        # Load data and check correctness
+        header_path = bpy.path.abspath(context.scene.simple_cfd_header_file)
+
+        try:
+            lo, hi, res, NVARS, data_filename = read_header_file(header_path)
+        except FileNotFoundError:
+            self.report({"ERROR"}, "Header file not found: " + header_path)
+            return {"CANCELLED"}
+        except ValueError:
+            self.report({"ERROR"}, "Invalid header file: " + header_path)
+            return {"CANCELLED"}
+        
+        GRIDDIM = len(res)
+        if len(lo) != GRIDDIM or len(hi) != GRIDDIM:
+            self.report({"ERROR"}, "Dimension mismatch in grid parameters")
+            return {"CANCELLED"}
+
+        if GRIDDIM != 3:
+            self.report({"ERROR"}, "Wrong grid dimension: " + str(GRIDDIM) + " (must be 3)")
+            return {"CANCELLED"}
+        
+        if NVARS != 5:
+            self.report({"ERROR"}, "Wrong number of variables: " + str(NVARS) + " (must be 5)")
+            return {"CANCELLED"}
+        
+        dx = np.asarray([(hi[d] - lo[d])/res[d] for d in range(GRIDDIM)])
+        if not np.allclose(dx, dx[0]):
+            self.report({"ERROR"}, "Non-square cells")
+            return {"CANCELLED"}
+
+        dir = os.path.dirname(header_path)
+        data_path = dir + "/" + data_filename
+
+        try:
+            data = read_data_file(data_path, res, NVARS)
+        except FileNotFoundError:
+            self.report({"ERROR"}, "Data file not found: " + data_path)
+            return {"CANCELLED"}
+        except ValueError:
+            self.report({"ERROR"}, "Invalid data file: " + data_path)
+            return {"CANCELLED"}
+
+        # Compute velocity
+        velocity = get_velocity(data)
+
+        # Compute minimum time to traverse a cell
+        max_velocity_mag = np.max(np.linalg.norm(velocity, axis=-1))
+        if max_velocity_mag < 1e-16:
+            self.report({"ERROR"}, "Cannot compute streamlines in zero velocity field")
+            return {"CANCELLED"}
+        dt = dx[0] / max_velocity_mag
+        
+        # Find initial points
+        spacing = context.scene.simple_cfd_streamline_spacing
+        idx_list = []
+        for d in range(GRIDDIM):
+            idx_list.append(np.arange(0, res[d], spacing, dtype=np.float64))
+        idx_list = np.moveaxis(np.asarray(np.meshgrid(*idx_list)), 0, -1)
+        nlines = np.prod(idx_list.shape[:GRIDDIM])
+        idx_list = idx_list.reshape(nlines, GRIDDIM)
+        pos_list = idx_to_pos(idx_list, lo, dx)
+
+        # Create curve data
+        name = os.path.splitext(os.path.basename(context.scene.simple_cfd_header_file))[0]
+        curve_data = bpy.data.curves.new(name=name, type="CURVE")
+        curve_data.dimensions = "3D"
+
+        steps = context.scene.simple_cfd_streamline_steps
+        for i in range(nlines):
+            spline = curve_data.splines.new(type="POLY")
+            spline.points.add(steps - 1)
+            for j in range(steps):
+                bp = spline.points[j]
+                bp.co = (*pos_list[i], 1.0)
+                if np.all(lo <= pos_list[i]) and np.all(pos_list[i] <= hi):
+                    v = interp(velocity, *idx_list[i])
+                    pos_list[i] += v * dt
+                    idx_list[i] = pos_to_idx(pos_list[i], lo, dx)
+
+        obj = bpy.data.objects.new(name, curve_data)
+        bpy.context.collection.objects.link(obj)
+        
+        return {"FINISHED"}
 
 
 # Panel to select files and import them
@@ -147,22 +293,30 @@ class SIMPLE_CFD_PT_import(bpy.types.Panel):
     def draw(self, context):
         col = self.layout.column(align=True)
         col.prop(context.scene, "simple_cfd_header_file")  # File selector for header file
-        col.operator("SIMPLE_CFD_OT_import")  # Button to import data
+        col.operator("SIMPLE_CFD_OT_volume_import")  # Button to import volume data
+        col.prop(context.scene, "simple_cfd_streamline_spacing")
+        col.prop(context.scene, "simple_cfd_streamline_steps")
+        col.operator("SIMPLE_CFD_OT_streamline_import")  # Button to import streamline data
 
 
 blender_classes = [
-    SIMPLE_CFD_OT_import,
+    SIMPLE_CFD_OT_volume_import, 
+    SIMPLE_CFD_OT_streamline_import, 
     SIMPLE_CFD_PT_import,
 ]
 
 
 def register():
     bpy.types.Scene.simple_cfd_header_file = bpy.props.StringProperty(name="Header file", default="", subtype="FILE_PATH")
+    bpy.types.Scene.simple_cfd_streamline_spacing = bpy.props.IntProperty(name="Streamline spacing", default=8, min=1)
+    bpy.types.Scene.simple_cfd_streamline_steps = bpy.props.IntProperty(name="Streamline steps", default=32, min=1)
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
 
 def unregister():
     del bpy.types.Scene.simple_cfd_header_file
+    del bpy.types.Scene.simple_cfd_streamline_spacing
+    del bpy.types.Scene.simple_cfd_streamline_steps
     for blender_class in blender_classes:
         bpy.utils.unregister_class(blender_class)
