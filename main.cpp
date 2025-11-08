@@ -362,9 +362,9 @@ void runWingTest(const Euler& euler,
     const REAL velInf = 315.81;
     const REAL pInf = 101325.0;
 
-    const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(-300e-3, -200e-3, -100e-3)};
-    const std::array<REAL, GRIDDIM> hi = {GRIDDIM_DECL(500e-3, 200e-3, 100e-3)};
-    const REAL finalTime = 600e-6;
+    const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(-200e-3, -200e-3, 0.0)};
+    const std::array<REAL, GRIDDIM> hi = {GRIDDIM_DECL(600e-3, 200e-3, 400e-3)};
+    const REAL finalTime = 5e-3;
 
     std::array<std::array<BoundaryCondition, GRIDDIM>, 2> bc;
     for(int s = 0; s < 2; ++s)
@@ -374,6 +374,7 @@ void runWingTest(const Euler& euler,
             bc[s][d] = BoundaryCondition::TRANSMISSIVE;
         }
     }
+    bc[0][2] = BoundaryCondition::REFLECTIVE;
 
     const Geometry geom(lo, hi, res);
     Mesh<Euler::NVARS> mesh(geom, 2);
@@ -507,7 +508,7 @@ int main(int argc, char *argv[])
                 runHypersonicSphereTest(euler, &fluxSolver, &recon, hypersonicSphereRes, false);
                 runHypersonicSphereTest(euler, &fluxSolver, &recon, hypersonicSphereRes, true);
 
-                const std::array<int, GRIDDIM> wingRes = {GRIDDIM_DECL(2 * res[0], res[1], res[2] / 2)};
+                const std::array<int, GRIDDIM> wingRes = {GRIDDIM_DECL(2 * res[0], res[1], res[2])};
                 runWingTest(euler, &fluxSolver, &recon, wingRes);
             #endif
         #endif
