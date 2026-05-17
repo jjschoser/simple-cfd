@@ -6,6 +6,11 @@
 #include "EquationOfState.H"
 #include "Macros.H"
 
+#if GRIDDIM == 3 && defined(USE_VDB)
+    #include <string_view>
+    #include <vector>
+#endif
+
 class Euler
 {
     public:
@@ -20,6 +25,13 @@ class Euler
         REAL getTotalEnergy(const REAL rho, const std::array<REAL, SPACEDIM>& vel, const REAL p) const;
         void evalFluxFunc(std::array<REAL, NVARS>& F, const std::array<REAL, NVARS>& U, const int dim) const;
         REAL getMaxWaveSpeed(const std::array<REAL, NVARS>& U) const;
+
+        #if GRIDDIM == 3 && defined(USE_VDB)
+            static constexpr int NOUTVARS = 3;
+            static constexpr std::array<std::string_view, NOUTVARS> OUTVARNAMES = {"density", "velocity", "pressure"};
+            static constexpr std::array<bool, NOUTVARS> ISVEC = {false, true, false};
+            void getOutState(std::array<std::vector<REAL>, NOUTVARS>& outVars, const std::array<REAL, NVARS>& U) const;
+        #endif
 
     private:
         const EquationOfState* const m_eos;

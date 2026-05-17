@@ -10,8 +10,7 @@
 
 // Contents of this file were written with the help of ChatGPT
 
-#ifdef USE_RIGID
-#if GRIDDIM == 3
+#if GRIDDIM == 3 && defined(USE_RIGID)
 
 bool loadSTL(const std::string& filename, 
              std::vector<std::array<std::array<REAL, GRIDDIM>, 3>>& verts, 
@@ -191,5 +190,4 @@ std::array<REAL, GRIDDIM> sub(const std::array<REAL, GRIDDIM>& v1, const std::ar
     return {GRIDDIM_DECL(v1[0]-v2[0], v1[1]-v2[1], v1[2]-v2[2])};
 }
 
-#endif
 #endif

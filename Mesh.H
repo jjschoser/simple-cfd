@@ -15,14 +15,17 @@
 #include "Macros.H"
 #include "FileHandler.H"
 
-#ifdef USE_RIGID
-    #if GRIDDIM == 3
-        #include "STLReader.H"
-    #endif
+#if GRIDDIM == 3 && defined(USE_RIGID)
+    #include "STLReader.H"
 #endif
 
 #ifdef USE_OMP
     #include <omp.h>
+#endif
+
+#if GRIDDIM == 3 && defined(USE_VDB)
+    #include <openvdb/openvdb.h>
+    #include "Euler.H"
 #endif
 
 enum BoundaryCondition
@@ -106,6 +109,10 @@ class Mesh : public DataArray<NVARS>
 
         void save(const std::string& headerFilename, const int step, const REAL time);
         void writeHeader(const std::string& headerFilename, const int step, const REAL time) const;
+
+        #if GRIDDIM == 3 && defined(USE_VDB)
+            void saveToVDB(const std::string& filename, const Euler& euler) const;
+        #endif
 
         static Mesh<NVARS> createFromFile(const std::string& headerFilename, int& step, REAL& time, const int nGhost);
 
@@ -293,19 +300,19 @@ void DataArray<NVARS>::fillGhost(const std::array<std::array<BoundaryCondition, 
                     {
                         idxTarget = {GRIDDIM_DECL(i, j, k)};
                         const int g = idxTarget[d];
-                        idxTarget[d] = (s == 0) ? -1 - g : m_res[d] + g;
+                        idxTarget[d] = (s == 0 ? -1 - g : m_res[d] + g);
                         idxSource = idxTarget;
                         if(bc[s][d] == TRANSMISSIVE)
                         {
-                            idxSource[d] = (s == 0) ? 0 : m_res[d] - 1;
+                            idxSource[d] = (s == 0 ? 0 : m_res[d] - 1);
                         }
                         else if(bc[s][d] == REFLECTIVE)
                         {
-                            idxSource[d] = (s == 0) ? g : m_res[d] - 1 - g;
+                            idxSource[d] = (s == 0 ? g : m_res[d] - 1 - g);
                         }
                         else if(bc[s][d] == PERIODIC)
                         {
-                            idxSource[d] =  (s == 0) ? m_res[d] - 1 - g : g;
+                            idxSource[d] =  (s == 0 ? m_res[d] - 1 - g : g);
                         }
                         (*this)(idxTarget) = (*this)(idxSource);
                         if(bc[s][d] == REFLECTIVE)
@@ -425,6 +432,95 @@ void Mesh<NVARS>::writeHeader(const std::string& headerFilename, const int step,
     file.close();
 }
 
+#if GRIDDIM == 3 && defined(USE_VDB)
+template<int NVARS>
+void Mesh<NVARS>::saveToVDB(const std::string& filename, const Euler& euler) const
+{
+    openvdb::initialize();
+
+    const std::array<int, GRIDDIM>& res = DataArray<NVARS>::getRes();
+    const std::array<REAL, GRIDDIM>& dx = m_geom.getDx();
+    
+    openvdb::GridPtrVec grids(Euler::NOUTVARS);
+    std::vector<openvdb::FloatGrid::Accessor> floatAccessors;
+    std::vector<openvdb::Vec3SGrid::Accessor> vecAccessors;
+    floatAccessors.reserve(Euler::NOUTVARS);
+    vecAccessors.reserve(Euler::NOUTVARS);
+    std::array<int, Euler::NOUTVARS> accessorIdx;
+    for(int n = 0; n < Euler::NOUTVARS; ++n)
+    {
+        if(Euler::ISVEC[n])
+        {
+            auto grid = openvdb::Vec3SGrid::create();
+            grids[n] = grid;
+            vecAccessors.push_back(grid->getAccessor());
+            accessorIdx[n] = vecAccessors.size() - 1;
+        }
+        else
+        {
+            auto grid = openvdb::FloatGrid::create();
+            grids[n] = grid;
+            auto accessor = grid->getAccessor();
+            floatAccessors.push_back(grid->getAccessor());
+            accessorIdx[n] = floatAccessors.size() - 1;
+        }
+        grids[n]->setTransform(openvdb::math::Transform::createLinearTransform(dx[0]));  // Assumes that voxels have equal side lengths
+        grids[n]->setName(std::string(Euler::OUTVARNAMES[n]));
+    }
+
+    openvdb::Coord ijk;
+    int& i = ijk[0];
+    int& j = ijk[1];
+    int& k = ijk[2];
+
+    for(i = 0; i < res[0]; ++i)
+    {
+        for(j = 0; j < res[1]; ++j)
+        {
+            for(k = 0; k < res[2]; ++k)
+            {
+                #ifdef USE_RIGID
+                if(!isRigid(GRIDDIM_DECL(i, j, k)))
+                #endif
+                {
+                    const std::array<REAL, NVARS>& data = (*this)(GRIDDIM_DECL(i, j, k));
+                    std::array<std::vector<REAL>, Euler::NOUTVARS> outData;
+                    euler.getOutState(outData, data);
+                    for(int n = 0; n < Euler::NOUTVARS; ++n)
+                    {
+                        if(Euler::ISVEC[n])
+                        {
+                            #ifdef DEBUG
+                                assert(outData[n].size() == SPACEDIM);
+                            #endif
+                            std::array<REAL, GRIDDIM> vec = {GRIDDIM_DECL(0.0, 0.0, 0.0)};
+                            for(int d = 0; d < SPACEDIM; ++d)
+                            {
+                                vec[d] = outData[n][d];
+                            }
+                            vecAccessors[accessorIdx[n]].setValue(ijk, openvdb::Vec3s(GRIDDIM_DECL(vec[0], vec[1], vec[2])));
+                        }
+                        else
+                        {
+                            #ifdef DEBUG
+                                assert(outData[n].size() == 1);
+                            #endif
+                            floatAccessors[accessorIdx[n]].setValue(ijk, outData[n][0]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    createDirForFile(filename);
+    openvdb::io::File file(filename);
+ 
+    file.write(grids);
+    file.close();
+}
+#endif
+
 template<int NVARS>
 Mesh<NVARS> Mesh<NVARS>::createFromFile(const std::string& headerFilename, int& step, REAL& time, const int nGhost)
 {
@@ -524,8 +620,8 @@ void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>&
     const int nGhost = DataArray<NVARS>::getNGhost();
     const std::array<REAL, GRIDDIM>& dx = m_geom.getDx();
     const REAL cellSize = std::sqrt(GRIDDIM_TERM(dx[0] * dx[0],
-                                                    + dx[1] * dx[1],
-                                                    + dx[2] * dx[2]));
+                                                 + dx[1] * dx[1],
+                                                 + dx[2] * dx[2]));
     #ifdef USE_OMP
     #pragma omp parallel for default(none) shared(vecIdx, multiplier, res, nGhost, dx, cellSize) schedule(dynamic)
     #endif

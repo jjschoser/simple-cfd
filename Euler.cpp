@@ -61,3 +61,18 @@ REAL Euler::getMaxWaveSpeed(const std::array<REAL, NVARS>& U) const
     }
     return m_eos->getSoundSpeed(rho, p) + std::sqrt(velMag2);
 }
+
+#if GRIDDIM == 3 && defined(USE_VDB)
+void Euler::getOutState(std::array<std::vector<REAL>, NOUTVARS>& outVars, const std::array<REAL, NVARS>& U) const
+{
+    const REAL rho = U[RHO];
+    const REAL e = getSpecificInternalEnergy(U);
+    outVars[0] = {rho};
+    outVars[1].resize(SPACEDIM);
+    for(int d = 0; d < SPACEDIM; ++d)
+    {
+        outVars[1][d] = U[MOM[d]] / rho;
+    }
+    outVars[2] = {m_eos->getPressure(rho, e)};
+}
+#endif

@@ -9,8 +9,12 @@
 int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh, 
           const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
           const FluxSolver* const fluxSolver, const Reconstruction* recon, 
-          const std::string& name="cfd", const REAL cfl=0.9, const REAL outInterval=0.0,
-          const int startStep=0, const REAL startTime=0.0);
+          const std::string& baseName="cfd", const REAL cfl=0.9, const REAL outInterval=0.0,
+          const int startStep=0, const REAL startTime=0.0
+          #if GRIDDIM == 3 && defined(USE_VDB)
+              , const std::string& vdbBaseName="cfd.vdb", const REAL vdbInterval=0.0, const int vdbStartIdx=0
+          #endif
+          );
 
 REAL calcDt(const Euler& euler, const Mesh<Euler::NVARS>& mesh, const REAL cfl);
 

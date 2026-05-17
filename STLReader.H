@@ -7,8 +7,7 @@
 
 #include "Macros.H"
 
-#ifdef USE_RIGID
-#if GRIDDIM == 3
+#if GRIDDIM == 3 && defined(USE_RIGID)
 
 bool loadSTL(const std::string& filename, 
              std::vector<std::array<std::array<REAL, GRIDDIM>, 3>>& verts, 
@@ -32,7 +31,6 @@ std::array<REAL, GRIDDIM> scale(const std::array<REAL, GRIDDIM>& v, const REAL s
 std::array<REAL, GRIDDIM> add(const std::array<REAL, GRIDDIM>& v1, const std::array<REAL, GRIDDIM>& v2);
 std::array<REAL, GRIDDIM> sub(const std::array<REAL, GRIDDIM>& v1, const std::array<REAL, GRIDDIM>& v2);
 
-#endif
 #endif
 
 #endif

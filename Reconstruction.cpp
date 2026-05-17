@@ -44,7 +44,7 @@ void MUSCLHancock::reconLinear(std::array<REAL, Euler::NVARS>& UReconLo, std::ar
     for (int v = 0; v < Euler::NVARS; ++v)
     {
         denom = UNbrHi[v] - U[v];
-        r = (std::fabs(denom) > 1e-16) ? (U[v] - UNbrLo[v]) / denom : 0.0;
+        r = (std::fabs(denom) > 1e-16 ? (U[v] - UNbrLo[v]) / denom : 0.0);
         phi = slopeLimiter(r);
         delta = 0.5 * phi * (UNbrHi[v] - UNbrLo[v]);
         UReconLo[v] = U[v] - 0.5 * delta;

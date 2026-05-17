@@ -13,8 +13,7 @@ if __name__ == "__main__":
     test_out_dir = "test-output/kelvin-helmholtz-anim/"
     name = "KelvinHelmholtz"
     settings_fname = name + "Settings.txt"
-    init_header_fname = name + "Init.txt"
-    final_header_fname = name + ".txt"
+    init_header_fname = name + ".txt"
 
     final_time = 3.0
     movie_duration = 10.0
@@ -24,8 +23,8 @@ if __name__ == "__main__":
     gamma = 1.4
     band_height = 0.5
 
-    lo_bc = [2, 2]
-    hi_bc = [2, 2]
+    bc_lo = [2, 2]
+    bc_hi = [2, 2]
 
     lo = np.array([-0.5, -0.5])
     hi = np.array([0.5, 0.5])
@@ -46,8 +45,9 @@ if __name__ == "__main__":
     init_data[:, :, 3] = 0.5 * init_data[:, :, 0] * (vel_x ** 2 + vel_y ** 2) + p / (gamma - 1)
     save(test_out_dir + init_header_fname, 0, 0.0, lo, hi, init_data)
 
-    write_settings(test_out_dir + settings_fname, init_header_fname, final_header_fname, 
-                   final_time, lo_bc, hi_bc, gamma, out_interval)
+    write_settings(test_out_dir + settings_fname, init_header_fname, 
+                   final_time, bc_lo=bc_lo, bc_hi=bc_hi, gamma=gamma, 
+                   out_interval=out_interval)
     subprocess.run(["make", "clean"])
     subprocess.run(["make"])
     subprocess.run(["./ilmatar-cfd", test_out_dir + settings_fname])

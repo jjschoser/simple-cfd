@@ -547,9 +547,23 @@ void runSpaceShuttleTest(const Euler& euler,
         assert(mesh.loadSDF("space-shuttle.stl"));
         mesh.saveSDF(getSDFFilename(filename));
     }
+
+    const REAL cfl = 0.9;
+    const REAL outInterval = 0.25 * finalTime;
+    const int startStep = 0;
+    const REAL startTime = 0.0;
+    #ifdef USE_VDB
+        const std::string vdbBaseName = testOutDir + name + ".vdb";
+        const REAL vdbInterval = 0.01 * finalTime;
+    #endif
     
     const auto start = std::chrono::high_resolution_clock::now();
-    const int finalStep = solve(euler, finalTime, mesh, bc, fluxSolver, recon, filename);
+    const int finalStep = solve(euler, finalTime, mesh, bc, fluxSolver, recon, filename, 
+                                cfl, outInterval, startStep, startTime
+                                #ifdef USE_VDB
+                                    , vdbBaseName, vdbInterval
+                                #endif
+                                );
     const auto stop = std::chrono::high_resolution_clock::now();
 
     mesh.save(addStepCounter(filename, finalStep), finalStep, finalTime);

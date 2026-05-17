@@ -13,8 +13,12 @@
 int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh, 
           const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
           const FluxSolver* const fluxSolver, const Reconstruction* const recon, 
-          const std::string& name, const REAL cfl, const REAL outInterval, 
-          const int startStep, const REAL startTime)
+          const std::string& baseName, const REAL cfl, const REAL outInterval, 
+          const int startStep, const REAL startTime
+          #if GRIDDIM == 3 && defined(USE_VDB)
+              , const std::string& vdbBaseName, const REAL vdbInterval, const int vdbStartIdx
+          #endif
+          )
 {
     assert(startStep >= 0);
     assert(startTime >= 0.0);
@@ -24,6 +28,10 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
 
     int step = startStep;
     REAL t = startTime;
+
+    #if GRIDDIM == 3 && defined(USE_VDB)
+        int vdbIdx = vdbStartIdx;
+    #endif
 
     const std::array<int, GRIDDIM>& reconRes = mesh.getRes();
     std::array<int, GRIDDIM> fluxRes = mesh.getRes();
@@ -58,8 +66,15 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
         ++step;
         if(outInterval > 1e-16 && std::floor(t / outInterval) > std::floor((t - dt) / outInterval))
         {
-            mesh.save(addStepCounter(name, step), step, t);
+            mesh.save(addStepCounter(baseName, step), step, t);
         }
+        #if GRIDDIM == 3 && defined(USE_VDB)
+            if(vdbInterval > 1e-16 && std::floor(t / vdbInterval) > std::floor((t - dt) / vdbInterval))
+            {
+                mesh.saveToVDB(addStepCounter(vdbBaseName, vdbIdx), euler);
+                ++vdbIdx;
+            }
+        #endif
     }
     
     return step;

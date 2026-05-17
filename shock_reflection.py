@@ -12,8 +12,7 @@ if __name__ == "__main__":
     test_out_dir = "test-output/"
     name = "ShockReflectionFromScript"
     settings_fname = name + "Settings.txt"
-    init_header_fname = name + "Init.txt"
-    final_header_fname = name + ".txt"
+    init_header_fname = name + ".txt"
     sdf_header_fname = name + "SDF.txt"
 
     gamma = 1.4
@@ -26,8 +25,8 @@ if __name__ == "__main__":
     p_inf = 101325
     M_shock = 1.7
 
-    lo_bc = [0, 1]
-    hi_bc = [0, 0]
+    bc_lo = [0, 1]
+    bc_hi = [0, 0]
 
     lo = np.array([-4e-3, 0.0])
     hi = np.array([29e-3, 16.5e-3])
@@ -61,8 +60,9 @@ if __name__ == "__main__":
     sdf = np.cos(alpha_wedge) * Y_sdf - np.sin(alpha_wedge) * (X_sdf - x_wedge)
     save_sdf(test_out_dir + sdf_header_fname, lo, hi, sdf)
 
-    write_settings(test_out_dir + settings_fname, init_header_fname, final_header_fname, 
-                   final_time, lo_bc, hi_bc, gamma, 0.0, sdf_header_fname=sdf_header_fname)
+    write_settings(test_out_dir + settings_fname, init_header_fname, 
+                   final_time, bc_lo=bc_lo, bc_hi=bc_hi, gamma=gamma, 
+                   sdf_header_fname=sdf_header_fname)
     subprocess.run(["make", "clean"])
     subprocess.run(["make"])
     subprocess.run(["./ilmatar-cfd", test_out_dir + settings_fname])

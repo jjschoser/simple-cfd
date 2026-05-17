@@ -1,12 +1,10 @@
 #ifndef MACROS_H
 #define MACROS_H
 
-#define USE_OMP
 #define REAL double
 #define GRIDDIM 2
 #define SPACEDIM 2
 #define USE_RIGID
-// #define DEBUG
 
 #if GRIDDIM == 1
     #define GRIDDIM_TERM(a, b, c) a

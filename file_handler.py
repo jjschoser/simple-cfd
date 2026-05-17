@@ -24,7 +24,7 @@ def remove_step_counter(fname):
     i = len(stem) - 1
     while i >= 0 and stem[i].isdigit():
         i -= 1
-    new_stem = stem[:i+1]
+    new_stem = stem[:i]
     return str(path.with_stem(new_stem))
 
 
@@ -36,7 +36,7 @@ def create_dir_for_file(fname):
 def get_header_fname_list(base_name, dir="."):
     header_files = []
     for path in Path(dir).glob(f"{base_name}*"):
-        suffix = path.stem[len(base_name):]
+        suffix = path.stem[len(base_name)+1:]
         if suffix.isdigit():
             num = int(suffix)
             header_files.append((num, path))
@@ -48,7 +48,7 @@ def get_last_header_fname(base_name, dir="."):
     last_num = 0
     last_file = base_name + str(last_num)
     for path in Path(dir).glob(f"{base_name}*"):
-        suffix = path.stem[len(base_name):]
+        suffix = path.stem[len(base_name)+1:]
         if suffix.isdigit():
             num = int(suffix)
             if num > last_num:
