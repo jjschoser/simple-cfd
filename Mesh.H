@@ -73,7 +73,7 @@ class DataArray
         std::array<REAL, NVARS>& operator()(const std::array<int, GRIDDIM>& idx);
         const std::array<REAL, NVARS>& operator()(const std::array<int, GRIDDIM>& idx) const;
         std::array<REAL, NVARS> operator()(const std::array<REAL, GRIDDIM>& idx) const;
-
+        
         void fillGhost(const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
                        const std::vector<std::array<int, GRIDDIM>>& vecIdx);
         
@@ -261,8 +261,8 @@ std::array<REAL, NVARS> DataArray<NVARS>::operator()(const std::array<REAL, GRID
             #endif
             {
                 const std::array<REAL, NVARS> data = (*this)(GRIDDIM_DECL(idxLo[0] + iOffset, 
-                                                                            idxLo[1] + jOffset, 
-                                                                            idxLo[2] + kOffset));
+                                                                          idxLo[1] + jOffset, 
+                                                                          idxLo[2] + kOffset));
                 for(int v = 0; v < NVARS; ++v)
                 {
                     interpData[v] += data[v] * GRIDDIM_TERM(fac[0][iOffset], 
@@ -592,11 +592,11 @@ std::array<REAL, GRIDDIM> Mesh<NVARS>::getRigidNormal(GRIDDIM_DECL(const int i, 
         offset = {GRIDDIM_DECL(0, 0, 0)};
         offset[d] = 1;
         const REAL sdfLo = m_sdf(GRIDDIM_DECL(i - offset[0],
-                                                j - offset[1],
-                                                k - offset[2]))[0];
+                                              j - offset[1],
+                                              k - offset[2]))[0];
         const REAL sdfHi = m_sdf(GRIDDIM_DECL(i + offset[0],
-                                                j + offset[1],
-                                                k + offset[2]))[0];
+                                              j + offset[1],
+                                              k + offset[2]))[0];
         normal[d] = 0.5 * (sdfHi - sdfLo) / dx[d];
     }
     const REAL normalMag = std::sqrt(GRIDDIM_TERM(normal[0]*normal[0], + normal[1]*normal[1], + normal[2]*normal[2]));
@@ -642,9 +642,10 @@ void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>&
                     std::array<REAL, GRIDDIM> pos, probePos;
                     m_geom.getPos(pos, idx);
                     const std::array<REAL, GRIDDIM> normal = getRigidNormal(GRIDDIM_DECL(i, j, k));
+                    const REAL length = std::max(2 * (-sdf), (-sdf) + multiplier * cellSize);
                     for(int d = 0; d < GRIDDIM; ++d)
                     {
-                        probePos[d] = pos[d] - sdf * normal[d] * multiplier;
+                        probePos[d] = pos[d] + length * normal[d];
                     }
                     std::array<REAL, GRIDDIM> probeIdx;
                     m_geom.getIdx(probeIdx, probePos);
@@ -657,8 +658,8 @@ void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>&
                                             &probeData[vecIdx[v][1]], 
                                             &probeData[vecIdx[v][2]])};
                         const REAL dot = GRIDDIM_TERM(normal[0] * (*vec[0]), 
-                                                        + normal[1] * (*vec[1]), 
-                                                        + normal[2] * (*vec[2]));
+                                                      + normal[1] * (*vec[1]), 
+                                                      + normal[2] * (*vec[2]));
                         for(int d = 0; d < GRIDDIM; ++d)
                         {
                             (*vec[d]) -= 2 * normal[d] * dot;
