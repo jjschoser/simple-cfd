@@ -23,6 +23,10 @@
     #include <omp.h>
 #endif
 
+#ifdef USE_GRAVITY
+    #include "Euler.H"
+#endif
+
 #if GRIDDIM == 3 && defined(USE_VDB)
     #include <openvdb/openvdb.h>
     #include "Euler.H"
@@ -74,9 +78,6 @@ class DataArray
         const std::array<REAL, NVARS>& operator()(const std::array<int, GRIDDIM>& idx) const;
         std::array<REAL, NVARS> operator()(const std::array<REAL, GRIDDIM>& idx) const;
         
-        void fillGhost(const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
-                       const std::vector<std::array<int, GRIDDIM>>& vecIdx);
-        
         void saveData(const std::string& filename, const int nGhost=0);
         bool loadData(const std::string& filename, const int nGhost=0);
 
@@ -107,6 +108,13 @@ class Mesh : public DataArray<NVARS>
 
         const Geometry& getGeometry() const;
 
+        void fillGhost(const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
+                       const std::vector<std::array<int, GRIDDIM>>& vecIdx
+                       #ifdef USE_GRAVITY
+                           , const Euler& euler, const std::array<REAL, SPACEDIM>& g
+                       #endif
+                       );
+
         void save(const std::string& headerFilename, const int step, const REAL time);
         void writeHeader(const std::string& headerFilename, const int step, const REAL time) const;
 
@@ -124,7 +132,11 @@ class Mesh : public DataArray<NVARS>
 
             std::array<REAL, GRIDDIM> getRigidNormal(GRIDDIM_DECL(const int i, const int j, const int k)) const;
 
-            void fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>& vecIdx, const REAL multiplier=1.1);
+            void fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>& vecIdx,
+                                   #ifdef USE_GRAVITY
+                                       const Euler& euler, const std::array<REAL, SPACEDIM>& g,
+                                   #endif
+                                   const REAL multiplier=1.1);
 
             void saveSDF(const std::string& headerFilename);
             void writeSDFHeader(const std::string& headerFilename) const;
@@ -277,59 +289,6 @@ std::array<REAL, NVARS> DataArray<NVARS>::operator()(const std::array<REAL, GRID
 }
 
 template<int NVARS>
-void DataArray<NVARS>::fillGhost(const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
-                                 const std::vector<std::array<int, GRIDDIM>>& vecIdx)
-{
-    std::array<int, GRIDDIM> idxSource, idxTarget;
-    std::array<int, GRIDDIM> nIter;
-    for(int d = 0; d < GRIDDIM; ++d)
-    {
-        nIter = m_res;
-        nIter[d] = m_nGhost;
-        for(int s = 0; s < 2; ++s)
-        {
-            for(int i = 0; i < nIter[0]; ++i)
-            {
-                #if GRIDDIM >= 2
-                for(int j = 0; j < nIter[1]; ++j)
-                #endif
-                {
-                    #if GRIDDIM == 3
-                    for(int k = 0; k < nIter[2]; ++k)
-                    #endif
-                    {
-                        idxTarget = {GRIDDIM_DECL(i, j, k)};
-                        const int g = idxTarget[d];
-                        idxTarget[d] = (s == 0 ? -1 - g : m_res[d] + g);
-                        idxSource = idxTarget;
-                        if(bc[s][d] == TRANSMISSIVE)
-                        {
-                            idxSource[d] = (s == 0 ? 0 : m_res[d] - 1);
-                        }
-                        else if(bc[s][d] == REFLECTIVE)
-                        {
-                            idxSource[d] = (s == 0 ? g : m_res[d] - 1 - g);
-                        }
-                        else if(bc[s][d] == PERIODIC)
-                        {
-                            idxSource[d] =  (s == 0 ? m_res[d] - 1 - g : g);
-                        }
-                        (*this)(idxTarget) = (*this)(idxSource);
-                        if(bc[s][d] == REFLECTIVE)
-                        {
-                            for(size_t v = 0; v < vecIdx.size(); ++v)
-                            {
-                                (*this)(idxTarget)[vecIdx[v][d]] *= -1.0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-template<int NVARS>
 void DataArray<NVARS>::saveData(const std::string& filename, const int nGhost)
 {
     assert(0 <= nGhost && nGhost <= m_nGhost);
@@ -404,6 +363,71 @@ template<int NVARS>
 const Geometry& Mesh<NVARS>::getGeometry() const 
 {
     return m_geom;
+}
+
+template<int NVARS>
+void Mesh<NVARS>::fillGhost(const std::array<std::array<BoundaryCondition, GRIDDIM>, 2>& bc, 
+                            const std::vector<std::array<int, GRIDDIM>>& vecIdx
+                            #ifdef USE_GRAVITY
+                                , const Euler& euler, const std::array<REAL, SPACEDIM>& g
+                            #endif
+                            )
+{
+    const std::array<int, GRIDDIM>& res = DataArray<NVARS>::getRes();
+    const int nGhost = DataArray<NVARS>::getNGhost();
+    std::array<int, GRIDDIM> idxSource, idxTarget;
+    std::array<int, GRIDDIM> nIter;
+    for(int d = 0; d < GRIDDIM; ++d)
+    {
+        nIter = res;
+        nIter[d] = nGhost;
+        for(int s = 0; s < 2; ++s)
+        {
+            for(int i = 0; i < nIter[0]; ++i)
+            {
+                #if GRIDDIM >= 2
+                for(int j = 0; j < nIter[1]; ++j)
+                #endif
+                {
+                    #if GRIDDIM == 3
+                    for(int k = 0; k < nIter[2]; ++k)
+                    #endif
+                    {
+                        idxTarget = {GRIDDIM_DECL(i, j, k)};
+                        const int ghostIdx = idxTarget[d];
+                        idxTarget[d] = (s == 0 ? -1 - ghostIdx : res[d] + ghostIdx);
+                        idxSource = idxTarget;
+                        if(bc[s][d] == TRANSMISSIVE)
+                        {
+                            idxSource[d] = (s == 0 ? 0 : res[d] - 1);
+                        }
+                        else if(bc[s][d] == REFLECTIVE)
+                        {
+                            idxSource[d] = (s == 0 ? ghostIdx : res[d] - 1 - ghostIdx);
+                        }
+                        else if(bc[s][d] == PERIODIC)
+                        {
+                            idxSource[d] =  (s == 0 ? res[d] - 1 - ghostIdx : ghostIdx);
+                        }
+                        (*this)(idxTarget) = (*this)(idxSource);
+                        if(bc[s][d] == REFLECTIVE)
+                        {
+                            for(size_t v = 0; v < vecIdx.size(); ++v)
+                            {
+                                (*this)(idxTarget)[vecIdx[v][d]] *= -1.0;
+                            }
+                        }
+                        #ifdef USE_GRAVITY
+                            std::array<REAL, GRIDDIM> probePos, ghostPos;
+                            m_geom.getPos(probePos, idxSource);
+                            m_geom.getPos(ghostPos, idxTarget);
+                            euler.addGravityToGhostState((*this)(idxTarget), probePos, ghostPos, g);
+                        #endif
+                    }
+                }
+            }
+        }
+    }
 }
 
 template<int NVARS>
@@ -614,7 +638,11 @@ std::array<REAL, GRIDDIM> Mesh<NVARS>::getRigidNormal(GRIDDIM_DECL(const int i, 
 }
 
 template<int NVARS>
-void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>& vecIdx, const REAL multiplier)
+void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>& vecIdx,
+                                    #ifdef USE_GRAVITY
+                                        const Euler& euler, const std::array<REAL, SPACEDIM>& g,
+                                    #endif
+                                    const REAL multiplier)
 {
     const std::array<int, GRIDDIM>& res = DataArray<NVARS>::getRes();
     const int nGhost = DataArray<NVARS>::getNGhost();
@@ -623,7 +651,11 @@ void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>&
                                                  + dx[1] * dx[1],
                                                  + dx[2] * dx[2]));
     #ifdef USE_OMP
+    #ifdef USE_GRAVITY
+    #pragma omp parallel for default(none) shared(vecIdx, multiplier, res, nGhost, dx, cellSize, euler, g) schedule(dynamic)
+    #else
     #pragma omp parallel for default(none) shared(vecIdx, multiplier, res, nGhost, dx, cellSize) schedule(dynamic)
+    #endif
     #endif
     for(int i = 0; i < res[0]; ++i)
     {
@@ -669,6 +701,9 @@ void Mesh<NVARS>::fillInternalGhost(const std::vector<std::array<int, GRIDDIM>>&
                     {
                         (*this)(GRIDDIM_DECL(i, j, k))[v] = probeData[v];
                     }
+                    #ifdef USE_GRAVITY
+                        euler.addGravityToGhostState((*this)(GRIDDIM_DECL(i, j, k)), probePos, pos, g);
+                    #endif
                 }
             }
         }

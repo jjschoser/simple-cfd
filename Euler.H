@@ -26,6 +26,12 @@ class Euler
         void evalFluxFunc(std::array<REAL, NVARS>& F, const std::array<REAL, NVARS>& U, const int dim) const;
         REAL getMaxWaveSpeed(const std::array<REAL, NVARS>& U) const;
 
+        #ifdef USE_GRAVITY
+            static void getGravitySource(std::array<REAL, NVARS>& S, const std::array<REAL, NVARS>& U, const std::array<REAL, SPACEDIM>& g);
+            void addGravityToGhostState(std::array<REAL, NVARS>& U, const std::array<REAL, GRIDDIM>& probePos, 
+                                        const std::array<REAL, GRIDDIM>& ghostPos, const std::array<REAL, SPACEDIM>& g) const;
+        #endif
+
         #if GRIDDIM == 3 && defined(USE_VDB)
             static constexpr int NOUTVARS = 3;
             static constexpr std::array<std::string_view, NOUTVARS> OUTVARNAMES = {"density", "velocity", "pressure"};

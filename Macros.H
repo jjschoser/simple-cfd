@@ -5,6 +5,7 @@
 #define GRIDDIM 2
 #define SPACEDIM 2
 #define USE_RIGID
+#define USE_GRAVITY
 
 #if GRIDDIM == 1
     #define GRIDDIM_TERM(a, b, c) a

@@ -4,8 +4,8 @@ from file_handler import *
 def write_settings(settings_fname, init_header_fname, final_time, 
                    bc_lo=None, bc_hi=None, gamma=None, cfl=None, 
                    sdf_header_fname=None, out_header_base_fname=None, 
-                   out_interval=None, vdb_base_fname=None, vdb_interval=None, 
-                   vdb_start_idx=None):
+                   out_interval=None, g=None, vdb_base_fname=None, 
+                   vdb_interval=None, vdb_start_idx=None):
     lines = ["init_header_fname = " + init_header_fname + "\n",
              "final_time = " + str(final_time) + "\n"]
     if bc_lo is not None:
@@ -22,6 +22,8 @@ def write_settings(settings_fname, init_header_fname, final_time,
         lines.append("out_header_base_fname = " + out_header_base_fname + "\n")
     if out_interval is not None:
         lines.append("out_interval = " + str(out_interval) + "\n")
+    if g is not None:
+        lines.append("g = " + " ".join([str(x) for x in g]) + "\n")
     if vdb_base_fname is not None:
         lines.append("vdb_base_fname = " + vdb_base_fname + "\n")
     if vdb_interval is not None:

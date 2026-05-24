@@ -62,6 +62,34 @@ REAL Euler::getMaxWaveSpeed(const std::array<REAL, NVARS>& U) const
     return m_eos->getSoundSpeed(rho, p) + std::sqrt(velMag2);
 }
 
+#ifdef USE_GRAVITY
+void Euler::getGravitySource(std::array<REAL, NVARS>& S, const std::array<REAL, NVARS>& U, const std::array<REAL, SPACEDIM>& g)
+{
+    S[ENE] = 0.0;
+    for(int d = 0; d < SPACEDIM; ++d)
+    {
+        S[MOM[d]] = U[RHO] * g[d];
+        S[ENE] = U[MOM[d]] * g[d];
+    }
+}
+
+void Euler::addGravityToGhostState(std::array<REAL, NVARS>& U, const std::array<REAL, GRIDDIM>& probePos, 
+                                   const std::array<REAL, GRIDDIM>& ghostPos, const std::array<REAL, SPACEDIM>& g) const
+{
+    const int dim = std::min(GRIDDIM, SPACEDIM);
+    REAL gDotD = 0.0;
+    for(int d = 0; d < dim; ++d)
+    {
+        gDotD += g[d] * (ghostPos[d] - probePos[d]);
+    }
+    const REAL rho = U[RHO];
+    const REAL e = getSpecificInternalEnergy(U);
+    const REAL p = m_eos->getPressure(rho, e);
+    const REAL deltaP = rho * gDotD;
+    U[ENE] += rho * (m_eos->getSpecificInternalEnergy(rho, p + deltaP) - e);
+}
+#endif
+
 #if GRIDDIM == 3 && defined(USE_VDB)
 void Euler::getOutState(std::array<std::vector<REAL>, NOUTVARS>& outVars, const std::array<REAL, NVARS>& U) const
 {

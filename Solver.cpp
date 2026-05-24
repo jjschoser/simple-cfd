@@ -15,6 +15,9 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
           const FluxSolver* const fluxSolver, const Reconstruction* const recon, 
           const std::string& baseName, const REAL cfl, const REAL outInterval, 
           const int startStep, const REAL startTime
+          #ifdef USE_GRAVITY
+              , const std::array<REAL, SPACEDIM>* g
+          #endif
           #if GRIDDIM == 3 && defined(USE_VDB)
               , const std::string& vdbBaseName, const REAL vdbInterval, const int vdbStartIdx
           #endif
@@ -47,6 +50,15 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
     const std::vector<std::array<int, GRIDDIM>> vecIdx = {{GRIDDIM_DECL(Euler::MOM[0], 
                                                                         Euler::MOM[1], 
                                                                         Euler::MOM[2])}};
+
+    #ifdef USE_GRAVITY
+        std::array<REAL, SPACEDIM> gReal = {SPACEDIM_DECL(0.0, 0.0, 0.0)};
+        if(g)
+        {
+            gReal = *g;
+        }
+    #endif
+    
     REAL dt;
     while(t < finalTime)
     {
@@ -54,14 +66,25 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
         std::cout << "step " << step << ", t = " << t << ", dt = " << dt << ", progress = " << (t - startTime) / (finalTime - startTime) * 100 << " %" << std::endl;
         for(int d = 0; d < GRIDDIM; ++d)
         {
-            mesh.fillGhost(bc, vecIdx);
+            mesh.fillGhost(bc, vecIdx
+                           #ifdef USE_GRAVITY
+                               , euler, gReal
+                           #endif
+                           );
             #ifdef USE_RIGID
-                mesh.fillInternalGhost(vecIdx);
+                mesh.fillInternalGhost(vecIdx
+                                       #ifdef USE_GRAVITY
+                                           , euler, gReal
+                                       #endif
+                                       );
             #endif
             doReconstruction(recon, mesh, reconDataLo, reconDataHi, dt, d);
             calcFlux(fluxSolver, mesh.getGeometry(), reconDataLo, reconDataHi, fluxData, dt, d);
             updateMesh(mesh, fluxData, dt, d);
         }
+        #ifdef USE_GRAVITY
+            addGravity(mesh, gReal, dt);
+        #endif
         t += dt;
         ++step;
         if(outInterval > 1e-16 && std::floor(t / outInterval) > std::floor((t - dt) / outInterval))
@@ -234,3 +257,44 @@ void updateMesh(Mesh<Euler::NVARS>& mesh, const DataArray<Euler::NVARS>& fluxDat
         }
     }
 }
+
+#ifdef USE_GRAVITY
+void addGravity(Mesh<Euler::NVARS>& mesh, 
+                const std::array<REAL, SPACEDIM>& g, 
+                const REAL dt)
+{
+    const std::array<int, GRIDDIM>& res = mesh.getRes();
+
+    #ifdef USE_OMP
+    #pragma omp parallel for default(none) shared(mesh, res, dt, g) schedule(static)
+    #endif
+    for(int i = 0; i < res[0]; ++i)
+    {
+        #if GRIDDIM >= 2
+        for(int j = 0; j < res[1]; ++j)
+        #endif
+        {
+            #if GRIDDIM == 3
+            for(int k = 0; k < res[2]; ++k)
+            #endif
+            {
+                #ifdef USE_RIGID
+                if(!mesh.isRigid(GRIDDIM_DECL(i, j, k)))
+                #endif
+                {
+                    std::array<REAL, Euler::NVARS> S;
+                    std::array<REAL, Euler::NVARS>& U = mesh(GRIDDIM_DECL(i, j, k));
+                    Euler::getGravitySource(S, U, g);
+                    for(int v = 0; v < Euler::NVARS; ++v)
+                    {
+                        U[v] += dt * S[v];
+                        #ifdef DEBUG
+                            assert(!std::isnan(U[v]));
+                        #endif
+                    }
+                }
+            }
+        }
+    }
+}
+#endif

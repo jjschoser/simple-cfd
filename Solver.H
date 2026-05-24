@@ -11,6 +11,9 @@ int solve(const Euler& euler, const REAL finalTime, Mesh<Euler::NVARS>& mesh,
           const FluxSolver* const fluxSolver, const Reconstruction* recon, 
           const std::string& baseName="cfd", const REAL cfl=0.9, const REAL outInterval=0.0,
           const int startStep=0, const REAL startTime=0.0
+          #ifdef USE_GRAVITY
+              , const std::array<REAL, SPACEDIM>* g=nullptr
+          #endif
           #if GRIDDIM == 3 && defined(USE_VDB)
               , const std::string& vdbBaseName="cfd.vdb", const REAL vdbInterval=0.0, const int vdbStartIdx=0
           #endif
@@ -32,5 +35,11 @@ void calcFlux(const FluxSolver* const fluxSolver, const Geometry& geom,
 void updateMesh(Mesh<Euler::NVARS>& mesh, 
                 const DataArray<Euler::NVARS>& fluxData, 
                 const REAL dt, const int dim);
+
+#ifdef USE_GRAVITY
+void addGravity(Mesh<Euler::NVARS>& mesh, 
+                const std::array<REAL, SPACEDIM>& g, 
+                const REAL dt);
+#endif
 
 #endif

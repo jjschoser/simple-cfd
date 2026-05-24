@@ -18,8 +18,11 @@ void parseSettings(std::string& settingsName, std::string& initHeaderName, REAL&
                        std::string& sdfName,
                    #endif
                    std::string& outHeaderBaseName, REAL& outInterval
+                   #ifdef USE_GRAVITY
+                       , std::array<REAL, SPACEDIM>& g
+                   #endif
                    #if GRIDDIM == 3 && defined(USE_VDB)
-                      , std::string& vdbBaseName, REAL& vdbInterval, int& vdbStartIdx
+                       , std::string& vdbBaseName, REAL& vdbInterval, int& vdbStartIdx
                    #endif
                 )
 {
@@ -106,6 +109,16 @@ void parseSettings(std::string& settingsName, std::string& initHeaderName, REAL&
                 std::istringstream iss(segList[1]);
                 iss >> outInterval;
             }
+            #ifdef USE_GRAVITY
+                else if(segList[0] == "g")
+                {
+                    std::istringstream iss(segList[1]);
+                    for(int d = 0; d < GRIDDIM; ++d)
+                    {
+                        iss >> g[d];
+                    }
+                }
+            #endif
             #if GRIDDIM == 3 && defined(USE_VDB)
                 else if(segList[0] == "vdb_base_fname")
                 {
@@ -158,6 +171,9 @@ int main(int argc, char *argv[])
     #ifdef USE_RIGID
         std::string sdfName;
     #endif
+    #ifdef USE_GRAVITY
+        std::array<REAL, SPACEDIM> g = {SPACEDIM_DECL(0.0, 0.0, 0.0)};
+    #endif
     #if GRIDDIM == 3 && defined(USE_VDB)
         std::string vdbBaseName;
         int vdbStartIdx = 0;
@@ -172,6 +188,9 @@ int main(int argc, char *argv[])
                           sdfName,
                       #endif
                       outHeaderBaseName, outInterval
+                      #ifdef USE_GRAVITY
+                         , g
+                      #endif
                       #if GRIDDIM == 3 && defined(USE_VDB)
                           , vdbBaseName, vdbInterval, vdbStartIdx
                       #endif
@@ -192,12 +211,16 @@ int main(int argc, char *argv[])
         #ifdef USE_RIGID
             if(!sdfName.empty())
             {
+                std::cout << addPath(settingsName, sdfName) << std::endl;
                 assert(mesh.loadSDF(addPath(settingsName, sdfName)));
             }
         #endif
         const std::string outHeaderBaseNameWPath = addPath(settingsName, outHeaderBaseName);
         const auto start = std::chrono::high_resolution_clock::now();
         const int finalStep = solve(euler, finalTime, mesh, bc, &fluxSolver, &recon, outHeaderBaseNameWPath, cfl, outInterval, startStep, startTime
+                                    #ifdef USE_GRAVITY
+                                        , &g
+                                    #endif
                                     #if GRIDDIM == 3 && defined(USE_VDB)
                                         , vdbBaseName, vdbInterval, vdbStartIdx
                                     #endif
