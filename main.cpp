@@ -257,11 +257,8 @@ int main(int argc, char *argv[])
             runHypersonicSphereTest(euler, &fluxSolver, &recon, hypersonicSphereRes, false);
             runHypersonicSphereTest(euler, &fluxSolver, &recon, hypersonicSphereRes, true);
 
-            const std::array<int, GRIDDIM> wingRes = {GRIDDIM_DECL(2 * res[0], res[1], res[2])};
-            runWingTest(euler, &fluxSolver, &recon, wingRes);
-
-            const int spaceShuttleRes1D = std::max(512, res[0]);
-            const std::array<int, GRIDDIM> spaceShuttleRes = {GRIDDIM_DECL(spaceShuttleRes1D, spaceShuttleRes1D, spaceShuttleRes1D)};
+            const int spaceShuttleRes1D = std::max(256, res[0]);
+            const std::array<int, GRIDDIM> spaceShuttleRes = {GRIDDIM_DECL(2 * spaceShuttleRes1D, spaceShuttleRes1D, spaceShuttleRes1D)};
             runSpaceShuttleTest(euler, &fluxSolver, &recon, spaceShuttleRes);
         #endif
     }

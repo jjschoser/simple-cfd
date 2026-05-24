@@ -2,7 +2,7 @@
 
 Ilmatar CFD is a lightweight computational fluid dynamics code that solves the compressible Euler equations in 1D, 2D, or 3D using a conservative finite volume method on a Cartesian mesh. In order to achieve second-order accuracy in space and time, it uses MUSCL-Hancock reconstruction, and numerical fluxes are calculated using the HLLC approximate Riemann solver in a dimensionally split manner. Currently, only the ideal gas equation of state is implemented, but other equations of state can easily be added. Boundaries can be transmissive, reflective, or periodic and parallelism is supported via OpenMP.
 
-![Supersonic flow over a Wing](SpaceShuttleRender.jpg)
+![Supersonic flow over a Space Shuttle](SpaceShuttleRender.jpg)
 *Figure 1: Volumetic rendering of supersonic flow over a Space Shuttle showing shock waves and a turbulent wake.*
 
 ## Background
@@ -82,10 +82,10 @@ Importing this series file converts all members of the series to OpenVDB files a
 The results of example simulations can be seen in **Figure 1**, **Figure 2** and **Figure 3**.
 
 ![Kelvin–Helmholtz Instability](KelvinHelmholtzDemo.png)
-*Figure 2: Visualization of the Kelvin–Helmholtz instability demonstrating fluid shear between two layers.*
+*Figure 2: Visualisation of the Kelvin–Helmholtz instability demonstrating fluid shear between two layers.*
 
-![Supersonic flow over a Wing](WingRender.jpg)
-*Figure 3: Volumetic rendering of supersonic flow over a wing showing wingtip vortices and a shock wave on the suction side.*
+![Shock reflection from a wedge](ShockReflectionDemo.png)
+*Figure 3: Mock Schlieren visualisation of a Mach 1.7 shock wave reflecting from a 25 degree wedge.*
 
 ## Future work
 

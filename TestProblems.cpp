@@ -391,77 +391,6 @@ void runHypersonicSphereTest(const Euler& euler,
     std::cout << "Ran " << name << " in " << duration << " ms" << std::endl;
 }
 
-void runWingTest(const Euler& euler, 
-                 const FluxSolver* const fluxSolver, 
-                 const Reconstruction* const recon, 
-                 const std::array<int, GRIDDIM>& res)
-{
-    assert(GRIDDIM_TERM(res[0] > 0, && res[1] > 0, && res[2] > 0));
-
-    const std::string name = "Wing";
-    const std::string filename = testOutDir + name + ".txt";
-
-    const REAL rhoInf = 1.225;
-    const REAL velInf = 315.81;
-    const REAL pInf = 101325.0;
-
-    const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(-200e-3, -200e-3, 0.0)};
-    const std::array<REAL, GRIDDIM> hi = {GRIDDIM_DECL(600e-3, 200e-3, 400e-3)};
-    const REAL finalTime = 5e-3;
-
-    std::array<std::array<BoundaryCondition, GRIDDIM>, 2> bc;
-    for(int s = 0; s < 2; ++s)
-    {
-        for(int d = 0; d < GRIDDIM; ++d)
-        {
-            bc[s][d] = BoundaryCondition::TRANSMISSIVE;
-        }
-    }
-    bc[0][2] = BoundaryCondition::REFLECTIVE;
-
-    const Geometry geom(lo, hi, res);
-    Mesh<Euler::NVARS> mesh(geom, 2);
-
-    #ifdef USE_OMP
-    #pragma omp parallel for default(none) shared(res, geom, mesh, euler, rhoInf, velInf, pInf) schedule(static)
-    #endif
-    for(int i = 0; i < res[0]; ++i)
-    {
-        #if GRIDDIM >= 2
-        for(int j = 0; j < res[1]; ++j)
-        #endif
-        {
-            #if GRIDDIM == 3
-            for(int k = 0; k < res[2]; ++k)
-            #endif
-            {
-                const std::array<int, GRIDDIM> idx = {GRIDDIM_DECL(i, j, k)};
-                const std::array<REAL, SPACEDIM> vel = {SPACEDIM_DECL(velInf, 0.0, 0.0)};
-                mesh(idx)[euler.RHO] = rhoInf;
-                for(int d = 0; d < SPACEDIM; ++d)
-                {
-                    mesh(idx)[euler.MOM[d]] = rhoInf * vel[d];
-                }
-                mesh(idx)[euler.ENE] = euler.getTotalEnergy(rhoInf, vel, pInf);
-            }
-        }
-    }
-
-    if(!mesh.loadSDF(getSDFFilename(filename)))
-    {
-        assert(mesh.loadSDF("wing.stl"));
-        mesh.saveSDF(getSDFFilename(filename));
-    }
-    
-    const auto start = std::chrono::high_resolution_clock::now();
-    const int finalStep = solve(euler, finalTime, mesh, bc, fluxSolver, recon, filename);
-    const auto stop = std::chrono::high_resolution_clock::now();
-
-    mesh.save(addStepCounter(filename, finalStep), finalStep, finalTime);
-
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
-    std::cout << "Ran " << name << " in " << duration << " ms" << std::endl;
-}
 
 void runSpaceShuttleTest(const Euler& euler, 
                          const FluxSolver* const fluxSolver, 
@@ -487,8 +416,8 @@ void runSpaceShuttleTest(const Euler& euler,
     const REAL rhoInf = rhoStar*(S - velStar) / S;
     const REAL pInf = -S*rhoStar*velStar + rhoStar*velStar*velStar + pStar;
 
-    const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(-65.0, -43.0, -50.0)};
-    const std::array<REAL, GRIDDIM> hi = {GRIDDIM_DECL(35.0, 57.0, 50.0)};
+    const std::array<REAL, GRIDDIM> lo = {GRIDDIM_DECL(-65.0, -15.0, -25.0)};
+    const std::array<REAL, GRIDDIM> hi = {GRIDDIM_DECL(35.0, 35.0, 25.0)};
     const REAL finalTime = (hi[0] - lo[0]) / std::fabs(velStar);
 
     std::array<std::array<BoundaryCondition, GRIDDIM>, 2> bc;
@@ -554,7 +483,7 @@ void runSpaceShuttleTest(const Euler& euler,
     const REAL startTime = 0.0;
     #ifdef USE_VDB
         const std::string vdbBaseName = testOutDir + name + ".vdb";
-        const REAL vdbInterval = 0.01 * finalTime;
+        const REAL vdbInterval = 0.05 * finalTime;
     #endif
     
     const auto start = std::chrono::high_resolution_clock::now();

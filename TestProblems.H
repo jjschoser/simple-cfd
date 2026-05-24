@@ -36,11 +36,6 @@ void runHypersonicSphereTest(const Euler& euler,
                              const std::array<int, GRIDDIM>& res,
                              const bool useSTL);
 
-void runWingTest(const Euler& euler, 
-                 const FluxSolver* const fluxSolver, 
-                 const Reconstruction* const recon, 
-                 const std::array<int, GRIDDIM>& res);
-
 void runSpaceShuttleTest(const Euler& euler, 
                          const FluxSolver* const fluxSolver, 
                          const Reconstruction* const recon, 

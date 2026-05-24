@@ -160,31 +160,6 @@ def plot_hypersonic_sphere(useSTL):
     plt.close()
 
 
-def plot_wing():
-    name = "Wing"
-    step, time, lo, hi, data = load(get_last_header_fname(name, test_out_dir))
-    lo_sdf, hi_sdf, sdf = load_sdf(get_sdf_fname(remove_step_counter(get_last_header_fname(name, test_out_dir))))
-    assert(np.allclose(lo_sdf, lo) and np.allclose(hi_sdf, hi))
-    x = np.linspace(lo[0], hi[0], data.shape[0])
-    y = np.linspace(lo[1], hi[1], data.shape[1])
-    z = np.linspace(lo[2], hi[2], data.shape[2])
-    X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
-    rho = np.where(sdf[1:-1, 1:-1, 1:-1] < 0, np.nan, data[..., 0])
-    
-    sliceIdx = 0
-    plt.figure(figsize=(12, 6))
-    plt.pcolormesh(X[..., sliceIdx], Y[..., sliceIdx], rho[..., sliceIdx])
-    plt.colorbar(label="Density")
-    plt.contour(X[..., sliceIdx], Y[..., sliceIdx], sdf[1:-1, 1:-1, sliceIdx], levels=[0], colors="k")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title(name + " at time " + str(time) + " after " + str(step) + " steps")
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.tight_layout()
-    plt.savefig(test_out_dir + name + ".png", dpi=300)
-    plt.close()
-
-
 def plot_space_shuttle():
     name = "SpaceShuttle"
     step, time, lo, hi, data = load(get_last_header_fname(name, test_out_dir))
@@ -243,11 +218,6 @@ if __name__ == "__main__":
 
     try:
         plot_hypersonic_sphere(True)
-    except FileNotFoundError:
-        pass
-
-    try:
-        plot_wing()
     except FileNotFoundError:
         pass
 

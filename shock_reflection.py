@@ -68,11 +68,11 @@ if __name__ == "__main__":
     subprocess.run(["./ilmatar-cfd", test_out_dir + settings_fname])
 
     step, time, _, __, final_data = load(get_last_header_fname(name, test_out_dir))
-    rho = np.where(sdf[1:-1, 1:-1] < 0, np.nan, final_data[:, :, 0])
+    rho = final_data[:, :, 0]
+    schlieren = np.where(sdf[1:-1, 1:-1] < 0, 0.0, np.exp(-np.linalg.norm(np.asarray(np.gradient(rho, *dx)), axis=0)/np.sqrt(rho)/2000))
     
     plt.figure(figsize=(10, 5))
-    plt.pcolormesh(X, Y, rho)
-    plt.colorbar(label="Density")
+    plt.pcolormesh(X, Y, schlieren, cmap="gray")
     plt.contour(X, Y, sdf[1:-1, 1:-1], levels=[0], colors="k")
     plt.xlabel("x")
     plt.ylabel("y")
