@@ -69,7 +69,7 @@ void Euler::getGravitySource(std::array<REAL, NVARS>& S, const std::array<REAL, 
     for(int d = 0; d < SPACEDIM; ++d)
     {
         S[MOM[d]] = U[RHO] * g[d];
-        S[ENE] = U[MOM[d]] * g[d];
+        S[ENE] += U[MOM[d]] * g[d];
     }
 }
 
