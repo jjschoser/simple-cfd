@@ -30,7 +30,42 @@ Further compilation settings are available in `Makefile`. The `DEBUG` setting pe
 
 ## Running tests
 
+There are three levels of tests.
+
+### Built-in simulation tests
+
 Once the settings in `Macros.H` and the `Makefile` have been set, the relevant test cases for the chosen dimensionality can be run and plotted using `run_tests.bash`. Here, the desired number of OpenMP threads can also be set. Note that two files are created to store the results from each run: one `.txt` file and one `.dat` file. The `.txt` (header) file contains metadata in human-readable format (number of steps taken, final time, domain extents, resolution, number of variables), as well as the name of the second file: a `.dat` (data) file that contains the state of the simulation in binary format. Some tests produce two header and data file pairs: one for the actual simulation data, and one for the signed distance function (SDF) describing the rigid body present in the problem. Here, the boundary of the rigid body is taken to be the zero contour of the SDF, and negative values correspond to the inside of the rigid body. It is worth noting that the SDF is provided for one cell outside the valid domain.
+
+### C++ unit tests
+
+The unit tests target individual components in isolation (equation of state, HLLC flux solver, MUSCL-Hancock reconstruction, mesh indexing and I/O) using the [Catch2](https://github.com/catchorg/Catch2) framework. The single-header version is already included in `tests/unit/catch2/`. These tests require **`GRIDDIM 3`, `SPACEDIM 3`** in `Macros.H`. Build and run with:
+
+```bash
+make unit_tests
+./tests/unit/run_tests
+```
+
+Or in one step:
+
+```bash
+make run_unit_tests
+```
+
+The test binary accepts standard Catch2 flags, for example `./tests/unit/run_tests [eos]` to run only the equation-of-state tests, or `./tests/unit/run_tests --list-tests` to see all test names.
+
+### Python integration and validation tests
+
+The Python test suite (in `tests/`) runs the compiled solver end-to-end and checks numerical properties: conservation of mass/momentum/energy with periodic boundaries, L1 accuracy of the Sod shock tube against the exact Riemann solution, order-of-convergence for smooth flow, and rotational symmetry between the x, y, and z directions. These tests require **`GRIDDIM 3`, `SPACEDIM 3`** and a Python virtual environment with `pytest` and `numpy` installed.
+
+```bash
+.venv/bin/python -m pytest tests/ -v -s
+```
+
+The `-v` flag prints one line per test case; `-s` shows the measured errors and convergence rates alongside each result. To run a single file:
+
+```bash
+.venv/bin/python -m pytest tests/test_sod.py -v -s
+```
 
 ## Settings files
 

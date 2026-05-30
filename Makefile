@@ -69,4 +69,31 @@ $(TARGET): $(OBJS)
 clean:
 	rm -f $(OBJS) $(TARGET)
 
-.PHONY: all clean
+# ------------------------------------------------------------------------------
+# C++ unit tests (Catch2 single-header)
+# ------------------------------------------------------------------------------
+UNIT_DEPS := EquationOfState.o Euler.o FluxSolver.o FileHandler.o \
+             Mesh.o Reconstruction.o STLReader.o
+UNIT_SRCS := tests/unit/test_main.cpp \
+             tests/unit/test_eos.cpp \
+             tests/unit/test_flux.cpp \
+             tests/unit/test_reconstruction.cpp \
+             tests/unit/test_mesh.cpp
+UNIT_OBJS := $(UNIT_SRCS:.cpp=.o)
+UNIT_BIN  := tests/unit/run_tests
+
+unit_tests: $(UNIT_BIN)
+
+$(UNIT_BIN): $(UNIT_OBJS) $(UNIT_DEPS)
+	$(CXX) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+tests/unit/%.o: tests/unit/%.cpp
+	$(CXX) $(CXXFLAGS) -I. -c $< -o $@
+
+run_unit_tests: unit_tests
+	./$(UNIT_BIN)
+
+clean_unit:
+	rm -f $(UNIT_OBJS) $(UNIT_BIN)
+
+.PHONY: all clean unit_tests run_unit_tests clean_unit

@@ -7,7 +7,9 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -446,6 +448,8 @@ void Mesh<NVARS>::writeHeader(const std::string& headerFilename, const int step,
     const std::array<REAL, GRIDDIM>& lo = m_geom.getLo();
     const std::array<REAL, GRIDDIM>& hi = m_geom.getHi();
     const std::array<int, GRIDDIM>& res = DataArray<NVARS>::getRes();
+    // Write floating-point values with enough digits to round-trip exactly.
+    file << std::setprecision(std::numeric_limits<REAL>::max_digits10);
     file << step << std::endl;
     file << time << std::endl;
     file << GRIDDIM_TERM(lo[0], << " " << lo[1], << " " << lo[2]) << std::endl;
